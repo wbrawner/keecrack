@@ -1,0 +1,22 @@
+dependencies {
+    compile project(':keecrack-lib')
+}
+
+apply plugin: 'javafx-gradle-plugin'
+
+jar {
+    manifest {
+        attributes (
+                'Main-Class': 'com.wbrawner.keecrack.gui.Main'
+        )
+    }
+}
+
+jfx {
+    // minimal requirement for jfxJar-task
+    mainClass = 'com.wbrawner.keecrack.gui.Main'
+
+    // minimal requirement for jfxNative-task
+    vendor = 'William Brawner'
+}
+
