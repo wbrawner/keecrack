@@ -1,3 +1,18 @@
+/*
+ * Copyright 2018 William Brawner
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.wbrawner.keecrack.lib;
 
 import com.wbrawner.keecrack.lib.view.CrackingView;
@@ -10,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 
+import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -38,26 +54,30 @@ public class KeeCrackTest {
     public void resetTest() {
         keeCrack.setDatabaseFile(new File("Database"));
         keeCrack.setKeyFile(new File("Keyfile"));
-        keeCrack.setWordlistFile(new File("WordList"));
+        keeCrack.setWordListPattern("Some pattern");
         assertNotNull(keeCrack.getDatabaseFile());
         assertNotNull(keeCrack.getKeyFile());
-        assertNotNull(keeCrack.getWordlistFile());
+        assertNotNull(keeCrack.getWordList());
         keeCrack.reset();
         assertNull(keeCrack.getDatabaseFile());
         assertNull(keeCrack.getKeyFile());
-        assertNull(keeCrack.getWordlistFile());
+        assertNull(keeCrack.getWordList());
+        assertFalse(keeCrack.isCracking());
     }
 
     @Test
     public void abortTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456.kdbx"));
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.abort();
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(1)).onError(Code.ERROR_CRACKING_INTERRUPTED);
     }
 
+    /**
+     * This ensures that both views receive any errors sent
+     */
     @Test
     public void sendErrorTest() {
         keeCrack.setCrackingView(mockCrackingView);
@@ -67,6 +87,9 @@ public class KeeCrackTest {
         verify(mockFormView, times(1)).onError(Code.ERROR_CRACKING_IN_PROGRESS);
     }
 
+    /**
+     * This ensures that the form view still receives the error if the cracking view is null
+     */
     @Test
     public void sendErrorWithoutCrackingViewTest() {
         keeCrack.setFormView(mockFormView);
@@ -74,6 +97,9 @@ public class KeeCrackTest {
         verify(mockFormView, times(1)).onError(Code.ERROR_CRACKING_IN_PROGRESS);
     }
 
+    /**
+     * This ensures that the cracking view still receives the error if the form view is null
+     */
     @Test
     public void sendErrorWithoutFormViewTest() {
         keeCrack.setCrackingView(mockCrackingView);
@@ -83,10 +109,10 @@ public class KeeCrackTest {
 
     @Test
     public void errorWithoutDatabaseFileTest() throws IOException {
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
-        verify(mockCrackingView, times(1)).onError(Code.ERROR_MISSING_DATABASE_FILE);
+        verify(mockCrackingView, times(1)).onError(Code.ERROR_INVALID_DATABASE_FILE);
     }
 
     @Test
@@ -94,14 +120,14 @@ public class KeeCrackTest {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456.kdbx"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
-        verify(mockCrackingView, times(1)).onError(Code.ERROR_MISSING_WORD_LIST_FILE);
+        verify(mockCrackingView, times(1)).onError(Code.ERROR_INVALID_WORD_LIST);
     }
 
 
     @Test
-    public void guessCorrectPasswordTest() throws IOException {
+    public void guessCorrectPasswordFromFileTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456.kdbx"));
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(1)).onPasswordGuess("123456");
@@ -109,20 +135,42 @@ public class KeeCrackTest {
     }
 
     @Test
-    public void guessCorrectPasswordAndKeyTest() throws IOException {
+    public void guessCorrectPasswordFromFileAndKeyTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456-key.kdbx"));
         keeCrack.setKeyFile(Utils.getKeyFile());
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(1)).onPasswordGuess("123456");
         verify(mockCrackingView, times(1)).onResult(eq("123456"), eq(1), any(Duration.class));
     }
 
+
     @Test
-    public void keepGuessingUntilCorrectPasswordTest() throws IOException {
+    public void guessCorrectPasswordFromPatternTest() throws IOException {
+        keeCrack.setDatabaseFile(Utils.getDatabase("0000.kdbx"));
+        keeCrack.setWordListPattern("[0-9]{4}");
+        keeCrack.setCrackingView(mockCrackingView);
+        keeCrack.attack();
+        verify(mockCrackingView, times(1)).onPasswordGuess(anyString());
+        verify(mockCrackingView, times(1)).onResult(eq("0000"), eq(1), any(Duration.class));
+    }
+
+    @Test
+    public void guessCorrectPasswordFromPatternAndKeyTest() throws IOException {
+        keeCrack.setDatabaseFile(Utils.getDatabase("0000-key.kdbx"));
+        keeCrack.setWordListPattern("[0-9]{4}");
+        keeCrack.setKeyFile(Utils.getKeyFile());
+        keeCrack.setCrackingView(mockCrackingView);
+        keeCrack.attack();
+        verify(mockCrackingView, times(1)).onPasswordGuess(anyString());
+        verify(mockCrackingView, times(1)).onResult(eq("0000"), eq(1), any(Duration.class));
+    }
+
+    @Test
+    public void keepGuessingUntilCorrectPasswordFromFileTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("redwings.kdbx"));
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(2)).onPasswordGuess(anyString());
@@ -130,20 +178,41 @@ public class KeeCrackTest {
     }
 
     @Test
-    public void keepGuessingUntilCorrectPasswordAndKeyTest() throws IOException {
+    public void keepGuessingUntilCorrectPasswordFromFileAndKeyTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("redwings-key.kdbx"));
         keeCrack.setKeyFile(Utils.getKeyFile());
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(2)).onPasswordGuess(anyString());
         verify(mockCrackingView, times(1)).onResult(eq("redwings"), eq(2), any(Duration.class));
+    }
+
+    @Test
+    public void keepGuessingUntilCorrectPasswordFromPatternTest() throws IOException {
+        keeCrack.setDatabaseFile(Utils.getDatabase("ab.kdbx"));
+        keeCrack.setWordListPattern("[a-z]{2}");
+        keeCrack.setCrackingView(mockCrackingView);
+        keeCrack.attack();
+        verify(mockCrackingView, times(2)).onPasswordGuess(anyString());
+        verify(mockCrackingView, times(1)).onResult(eq("ab"), eq(2), any(Duration.class));
+    }
+
+    @Test
+    public void keepGuessingUntilCorrectPasswordFromPatternAndKeyTest() throws IOException {
+        keeCrack.setDatabaseFile(Utils.getDatabase("ab-key.kdbx"));
+        keeCrack.setWordListPattern("[a-z]{2}");
+        keeCrack.setKeyFile(Utils.getKeyFile());
+        keeCrack.setCrackingView(mockCrackingView);
+        keeCrack.attack();
+        verify(mockCrackingView, times(2)).onPasswordGuess(anyString());
+        verify(mockCrackingView, times(1)).onResult(eq("ab"), eq(2), any(Duration.class));
     }
 
     @Test
     public void failToCrackPasswordTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456.kdbx"));
-        keeCrack.setWordlistFile(Utils.getWordList("invalid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("invalid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(3)).onPasswordGuess(anyString());
@@ -154,7 +223,7 @@ public class KeeCrackTest {
     public void failToCrackInvalidPasswordAndValidKeyTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456-key.kdbx"));
         keeCrack.setKeyFile(Utils.getKeyFile());
-        keeCrack.setWordlistFile(Utils.getWordList("invalid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("invalid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(3)).onPasswordGuess(anyString());
@@ -165,7 +234,7 @@ public class KeeCrackTest {
     public void failToCrackValidPasswordAndInvalidKeyTest() throws IOException {
         keeCrack.setDatabaseFile(Utils.getDatabase("123456-key.kdbx"));
         keeCrack.setKeyFile(Utils.getInvalidKeyFile());
-        keeCrack.setWordlistFile(Utils.getWordList("valid-words.txt"));
+        keeCrack.setWordListFile(Utils.getWordList("valid-words.txt"));
         keeCrack.setCrackingView(mockCrackingView);
         keeCrack.attack();
         verify(mockCrackingView, times(3)).onPasswordGuess(anyString());

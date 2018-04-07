@@ -1,34 +1,70 @@
+/*
+ * Copyright 2018 William Brawner
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.wbrawner.keecrack.lib;
 
 import com.wbrawner.keecrack.lib.view.CrackingView;
 import com.wbrawner.keecrack.lib.view.FormView;
+import com.wbrawner.keecrack.lib.wordlist.WordList;
 import org.linguafranca.pwdb.kdbx.KdbxCreds;
 import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxHeader;
 import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxSerializer;
 
-import java.io.*;
-import java.lang.ref.WeakReference;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * The main class responsible for handling the brute forcing of the KeePass database. You do not contruct the
+ * KeeCrack instance directly, but rather call {@link #getInstance()}. To begin, you should set the form view and
+ * cracking view with {@link #setFormView(FormView)} and {@link #setCrackingView(CrackingView)} respectively. These
+ * views will be responsible for displaying information like error messages and status updates. The cracking will
+ * work without these, though it's highly recommended to set them prior to beginning. The database and wordlist must
+ * be set, while the key file is also optional. If either of the required parameters are missing, the
+ * {@link #attack()} operation will abort, sending either {@link Code#ERROR_INVALID_DATABASE_FILE} or
+ * {@link Code#ERROR_INVALID_WORD_LIST}, respectively. The word list can either be a pattern, in which case
+ * incremental guessing will take place, or a file, in which case each line of the file will be considered a password
+ * to guess. Use {@link #setWordListPattern(String)} or {@link #setWordListFile(File)} respectively to achieve the
+ * desired guess strategy. If you need to interrupt the attack for any reason, you can call {@link #abort} and the
+ * cracking will stop on the next guess, sending {@link Code#ERROR_CRACKING_INTERRUPTED} to the views, provided they
+ * are set. For each guess, {@link CrackingView#onPasswordGuess(String)} is called, in case you'd like to do
+ * something with the passwords that have already been attempted. Upon a successful password guess, the
+ * {@link CrackingView#onResult(String, int, Duration)} method will be called with the first parameter as the correct
+ * password. If the password cannot be guessed with the words provided, then the same method will be called but the
+ * first parameter will be null.
+ */
 public class KeeCrack {
     private static final AtomicReference<KeeCrack> singleton = new AtomicReference<>(null);
     private final Object keyFileLock = new Object();
-    private WeakReference<FormView> formView = new WeakReference<>(null);
-    private WeakReference<CrackingView> crackingView = new WeakReference<>(null);
     private final AtomicBoolean isCracking = new AtomicBoolean(false);
-    private File databaseFile;
-    private File keyFile;
-    private File wordlistFile;
-
     /**
      * This is used to abort cracking
      */
     private final AtomicBoolean abort = new AtomicBoolean(false);
-
+    private final AtomicReference<FormView> formView = new AtomicReference<>(null);
+    private final AtomicReference<CrackingView> crackingView = new AtomicReference<>(null);
+    private File databaseFile;
+    private File keyFile;
+    private byte[] databaseBytes;
+    private byte[] keyBytes;
+    private WordList wordList;
     private int guessCount = 0;
 
     private KeeCrack() {
@@ -49,7 +85,7 @@ public class KeeCrack {
     public void reset() {
         setDatabaseFile(null);
         setKeyFile(null);
-        setWordlistFile(null);
+        setWordListFile(null);
         setCrackingView(null);
         setFormView(null);
     }
@@ -63,12 +99,12 @@ public class KeeCrack {
      */
     public void attack() {
         if (databaseFile == null || !databaseFile.exists() || !databaseFile.canRead()) {
-            sendErrorCode(Code.ERROR_MISSING_DATABASE_FILE);
+            sendErrorCode(Code.ERROR_INVALID_DATABASE_FILE);
             return;
         }
 
-        if (wordlistFile == null || !wordlistFile.exists() || !wordlistFile.canRead()) {
-            sendErrorCode(Code.ERROR_MISSING_WORD_LIST_FILE);
+        if (wordList == null) {
+            sendErrorCode(Code.ERROR_INVALID_WORD_LIST);
             return;
         }
 
@@ -81,56 +117,73 @@ public class KeeCrack {
         guessCount = 0;
         Instant startTime = Instant.now();
 
-        try (BufferedReader wordReader = new BufferedReader(new FileReader(wordlistFile))) {
-            String line = null;
-            boolean haveCorrectPassword = false;
-            while (!haveCorrectPassword && (line = wordReader.readLine()) != null) {
-                if (abort.get()) {
-                    sendErrorCode(Code.ERROR_CRACKING_INTERRUPTED);
-                    abort.set(false);
-                    return;
-                }
-                CrackingView view = crackingView.get();
-                if (view != null)
-                    view.onPasswordGuess(line);
-                haveCorrectPassword = guessPassword(line);
+        String line = null;
+        boolean haveCorrectPassword = false;
+        prepareByteArrays();
+        while (!haveCorrectPassword && wordList.hasNext()) {
+            if (abort.get()) {
+                sendErrorCode(Code.ERROR_CRACKING_INTERRUPTED);
+                isCracking.set(false);
+                abort.set(false);
+                return;
             }
+            line = wordList.nextWord();
+            try {
+                //noinspection ConstantConditions
+                crackingView.get().onPasswordGuess(line);
+            } catch (NullPointerException ignored) {
+            }
+            haveCorrectPassword = guessPassword(line);
+        }
 
-            CrackingView view = crackingView.get();
-            if (view != null) {
-                Duration duration = Duration.between(startTime, Instant.now());
-                String password = null;
-                if (haveCorrectPassword) {
-                    password = line;
-                }
-                view.onResult(password, guessCount, duration);
+        Duration duration = Duration.between(startTime, Instant.now());
+        String password = null;
+        if (haveCorrectPassword) {
+            password = line;
+        }
+        try {
+            //noinspection ConstantConditions
+            crackingView.get().onResult(password, guessCount, duration);
+        } catch (NullPointerException ignored) {
+        }
+
+        isCracking.set(false);
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private void prepareByteArrays() {
+        databaseBytes = Utils.getFileBytes(databaseFile);
+        synchronized (keyFileLock) {
+            if (keyFile == null) {
+                return;
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            sendErrorCode(Code.ERROR_FILE_READ);
-        } finally {
-            isCracking.set(false);
+            keyBytes = Utils.getFileBytes(keyFile);
         }
     }
 
     private boolean guessPassword(String password) {
         guessCount++;
-        try (InputStream inputStream = new FileInputStream(databaseFile)) {
+        InputStream databaseInput = null;
+        InputStream keyFileInput = null;
+        try {
+            databaseInput = new ByteArrayInputStream(databaseBytes);
             KdbxHeader databaseHeader = new KdbxHeader();
             KdbxCreds credentials;
-            synchronized (keyFileLock) {
-                if (keyFile == null) {
-                    credentials = new KdbxCreds(password.getBytes());
-                } else {
-                    credentials = new KdbxCreds(password.getBytes(), new FileInputStream(keyFile));
-                }
+            if (keyBytes == null || keyBytes.length == 0) {
+                credentials = new KdbxCreds(password.getBytes());
+            } else {
+                keyFileInput = new ByteArrayInputStream(keyBytes);
+                credentials = new KdbxCreds(password.getBytes(), keyFileInput);
             }
-            KdbxSerializer.createUnencryptedInputStream(credentials, databaseHeader, inputStream);
+            KdbxSerializer.createUnencryptedInputStream(credentials, databaseHeader, databaseInput);
             return true;
         } catch (IllegalStateException ignored) {
             // This happens when an incorrect guess occurs. Expected behavior, so we ignore it
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            Utils.closeQuietly(databaseInput);
+            Utils.closeQuietly(keyFileInput);
         }
         return false;
     }
@@ -178,26 +231,63 @@ public class KeeCrack {
         }
     }
 
-    public File getWordlistFile() {
-        return wordlistFile;
-    }
-
-    public void setWordlistFile(File wordlistFile) {
-        this.wordlistFile = wordlistFile;
+    public void setWordListFile(File wordlistFile) {
+        String response = null;
+        if (wordlistFile == null) {
+            this.wordList = null;
+        } else {
+            if (!wordlistFile.exists() || !wordlistFile.canRead()) {
+                try {
+                    //noinspection ConstantConditions
+                    crackingView.get().onError(Code.ERROR_INVALID_WORD_LIST);
+                } catch (NullPointerException ignored) {
+                }
+                this.wordList = null;
+                return;
+            }
+            this.wordList = new WordList(wordlistFile);
+            response = wordlistFile.getName();
+        }
         try {
-            String response = (wordlistFile == null) ? null : wordlistFile.getName();
             //noinspection ConstantConditions
-            formView.get().onWordListFileSet(response);
+            formView.get().onWordListSet(response);
         } catch (NullPointerException ignored) {
         }
     }
 
+    public void setWordListPattern(String pattern) {
+        if (pattern == null) {
+            this.wordList = null;
+        } else {
+            try {
+                this.wordList = new WordList(pattern);
+            } catch (IllegalArgumentException ignored) {
+                // This can be thrown if the user has entered an invalid regular expression
+            }
+        }
+        try {
+            //noinspection ConstantConditions
+            formView.get().onWordListSet(pattern);
+        } catch (NullPointerException ignored) {
+        }
+    }
+
+    WordList getWordList() {
+        return this.wordList;
+    }
+
+    public String getWordListName() {
+        if (this.wordList == null)
+            return null;
+        return this.wordList.getName();
+    }
+
     public void setFormView(FormView formView) {
-        this.formView = new WeakReference<>(formView);
+        this.formView.set(formView);
     }
 
     public void setCrackingView(CrackingView crackingView) {
-        this.crackingView = new WeakReference<>(crackingView);
+        this.crackingView.set(crackingView);
     }
 
     public boolean isCracking() {

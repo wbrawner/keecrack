@@ -1,61 +1,96 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+ * Copyright 2018 William Brawner
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+-->
 
-<?import javafx.geometry.Insets?>
+<?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.Cursor?>
 <?import javafx.scene.layout.*?>
 <AnchorPane xmlns:fx="http://javafx.com/fxml/1" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8"
             fx:controller="com.wbrawner.keecrack.gui.MainController">
-   <children>
-      <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-         <children>
-            <GridPane alignment="CENTER" prefHeight="90.0" prefWidth="539.0">
-              <columnConstraints>
-                <ColumnConstraints halignment="RIGHT" minWidth="100.0" prefWidth="20.0" />
-                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-              </columnConstraints>
-              <rowConstraints>
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-              </rowConstraints>
-               <children>
-                  <Label alignment="CENTER_RIGHT" text="Database" />
-                   <TextField fx:id="database" editable="false" promptText="Select" GridPane.columnIndex="1">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor>
-                     <GridPane.margin>
-                        <Insets left="20.0" />
-                     </GridPane.margin>
-                  </TextField>
-                  <Label text="Key File" GridPane.rowIndex="1" />
-                   <TextField fx:id="key" editable="false" promptText="Select (Optional)" GridPane.columnIndex="1"
-                              GridPane.rowIndex="1">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor>
-                     <GridPane.margin>
-                        <Insets left="20.0" />
-                     </GridPane.margin>
-                  </TextField>
-                   <TextField fx:id="wordlist" editable="false" promptText="Select" GridPane.columnIndex="1"
-                              GridPane.rowIndex="2">
-                     <cursor>
-                        <Cursor fx:constant="HAND" />
-                     </cursor>
-                     <GridPane.margin>
-                        <Insets left="20.0" />
-                     </GridPane.margin>
-                  </TextField>
-                  <Label text="Word List" GridPane.rowIndex="2" />
-               </children>
-               <padding>
-                  <Insets left="20.0" right="20.0" />
-               </padding>
-            </GridPane>
-            <Button fx:id="crackButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="111.0" text="Crack" />
-         </children>
-      </VBox>
-   </children>
+    <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0" AnchorPane.bottomAnchor="0.0"
+          AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+        <GridPane alignment="CENTER">
+            <columnConstraints>
+                <ColumnConstraints halignment="RIGHT" minWidth="100.0" prefWidth="20.0"/>
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints maxHeight="-Infinity" minHeight="20.0" percentHeight="25.0" prefHeight="60.0"
+                                vgrow="ALWAYS"/>
+                <RowConstraints maxHeight="-Infinity" minHeight="20.0" percentHeight="25.0" prefHeight="60.0"
+                                vgrow="ALWAYS"/>
+                <RowConstraints maxHeight="-Infinity" minHeight="20.0" percentHeight="25.0" prefHeight="60.0"
+                                vgrow="ALWAYS"/>
+                <RowConstraints maxHeight="-Infinity" minHeight="20.0" percentHeight="25.0" prefHeight="60.0"
+                                vgrow="ALWAYS"/>
+            </rowConstraints>
+            <padding>
+                <Insets left="20.0" right="20.0"/>
+            </padding>
+            <Label alignment="CENTER_RIGHT" text="Database"/>
+            <TextField fx:id="database" editable="false" promptText="Select" GridPane.columnIndex="1">
+                <cursor>
+                    <Cursor fx:constant="HAND"/>
+                </cursor>
+                <GridPane.margin>
+                    <Insets left="20.0"/>
+                </GridPane.margin>
+            </TextField>
+            <Label text="Key File" GridPane.rowIndex="1"/>
+            <TextField fx:id="key" editable="false" promptText="Select (Optional)" GridPane.columnIndex="1"
+                       GridPane.rowIndex="1">
+                <cursor>
+                    <Cursor fx:constant="HAND"/>
+                </cursor>
+                <GridPane.margin>
+                    <Insets left="20.0"/>
+                </GridPane.margin>
+            </TextField>
+            <Label alignment="CENTER_RIGHT" text="Word List Type" GridPane.rowIndex="2"/>
+            <HBox alignment="CENTER_LEFT" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="1"
+                  GridPane.rowIndex="2">
+                <RadioButton fx:id="wordlistPattern" text="From Pattern">
+                    <HBox.margin>
+                        <Insets left="20.0"/>
+                    </HBox.margin>
+                    <toggleGroup>
+                        <ToggleGroup fx:id="wordlistType"/>
+                    </toggleGroup>
+                </RadioButton>
+                <RadioButton fx:id="wordlistFile" selected="true" text="From File"
+                             toggleGroup="wordlistType">
+                    <HBox.margin>
+                        <Insets left="20.0"/>
+                    </HBox.margin>
+                </RadioButton>
+            </HBox>
+            <TextField fx:id="wordlist" editable="false" promptText="Select" GridPane.columnIndex="1"
+                       GridPane.rowIndex="3">
+                <cursor>
+                    <Cursor fx:constant="HAND"/>
+                </cursor>
+                <GridPane.margin>
+                    <Insets left="20.0"/>
+                </GridPane.margin>
+            </TextField>
+            <Label text="Word List" GridPane.rowIndex="3"/>
+        </GridPane>
+        <Button fx:id="crackButton" mnemonicParsing="false" prefHeight="25.0" prefWidth="111.0" text="Crack"/>
+    </VBox>
 </AnchorPane>
