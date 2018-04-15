@@ -22,9 +22,7 @@ import org.linguafranca.pwdb.kdbx.KdbxCreds;
 import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxHeader;
 import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxSerializer;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -94,6 +92,30 @@ public class KeeCrack {
         abort.set(true);
     }
 
+    private static void closeQuietly(Closeable closeable) {
+        if (closeable == null) {
+            return;
+        }
+
+        try {
+            closeable.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static byte[] getFileBytes(File file) {
+        byte[] fileBytes;
+        try (InputStream inputStream = new FileInputStream(file)) {
+            fileBytes = new byte[inputStream.available()];
+            inputStream.read(fileBytes);
+            return fileBytes;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new byte[]{};
+        }
+    }
+
     /**
      * Call this to begin brute-forcing the database file.
      */
@@ -123,6 +145,7 @@ public class KeeCrack {
         while (!haveCorrectPassword && wordList.hasNext()) {
             if (abort.get()) {
                 sendErrorCode(Code.ERROR_CRACKING_INTERRUPTED);
+                cleanup();
                 isCracking.set(false);
                 abort.set(false);
                 return;
@@ -147,17 +170,23 @@ public class KeeCrack {
         } catch (NullPointerException ignored) {
         }
 
+        cleanup();
         isCracking.set(false);
+    }
+
+    private void cleanup() {
+        databaseBytes = null;
+        keyBytes = null;
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
     private void prepareByteArrays() {
-        databaseBytes = Utils.getFileBytes(databaseFile);
+        databaseBytes = getFileBytes(databaseFile);
         synchronized (keyFileLock) {
             if (keyFile == null) {
                 return;
             }
-            keyBytes = Utils.getFileBytes(keyFile);
+            keyBytes = getFileBytes(keyFile);
         }
     }
 
@@ -182,8 +211,8 @@ public class KeeCrack {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            Utils.closeQuietly(databaseInput);
-            Utils.closeQuietly(keyFileInput);
+            closeQuietly(databaseInput);
+            closeQuietly(keyFileInput);
         }
         return false;
     }

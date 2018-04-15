@@ -30,7 +30,7 @@ allprojects {
 
 subprojects {
     group 'com.wbrawner'
-    version '1.0-SNAPSHOT'
+    version '1.0'
 
     apply plugin: 'com.github.johnrengelman.shadow'
     apply plugin: 'java'
