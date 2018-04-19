@@ -69,12 +69,8 @@
                     <HBox.margin>
                         <Insets left="20.0"/>
                     </HBox.margin>
-                    <toggleGroup>
-                        <ToggleGroup fx:id="wordlistType"/>
-                    </toggleGroup>
                 </RadioButton>
-                <RadioButton fx:id="wordlistFile" selected="true" text="From File"
-                             toggleGroup="wordlistType">
+                <RadioButton fx:id="wordlistFile" selected="true" text="From File">
                     <HBox.margin>
                         <Insets left="20.0"/>
                     </HBox.margin>

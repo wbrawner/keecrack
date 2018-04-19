@@ -16,6 +16,7 @@
 package com.wbrawner.keecrack.cli;
 
 import com.wbrawner.keecrack.lib.Code;
+import com.wbrawner.keecrack.lib.CrackerFactory;
 import com.wbrawner.keecrack.lib.KeeCrack;
 import com.wbrawner.keecrack.lib.view.CrackingView;
 import net.sourceforge.argparse4j.ArgumentParsers;
@@ -71,7 +72,7 @@ public class Main {
             Namespace res = parser.parseArgs(args);
             isVerbose = res.getBoolean("verbose");
             isIncremental = res.getBoolean("incremental");
-            KeeCrack keeCrack = KeeCrack.getInstance();
+            KeeCrack keeCrack = new CrackerFactory().getCracker(true);
             keeCrack.setCrackingView(new CLICrackingView());
 
             String databasePath = res.getString("database");

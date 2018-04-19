@@ -16,6 +16,7 @@
 package com.wbrawner.keecrack.gui;
 
 import com.wbrawner.keecrack.lib.Code;
+import com.wbrawner.keecrack.lib.CrackerFactory;
 import com.wbrawner.keecrack.lib.KeeCrack;
 import com.wbrawner.keecrack.lib.view.CrackingView;
 import javafx.application.Platform;
@@ -41,10 +42,11 @@ public class CrackingController implements Initializable, CrackingView {
     private Label timeElapsed;
 
     private Stage stage;
+    private KeeCrack keeCrack;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        final KeeCrack keeCrack = KeeCrack.getInstance();
+        keeCrack = new CrackerFactory().getCracker(true);
         keeCrack.setCrackingView(this);
         new Thread(keeCrack::attack).start();
     }
@@ -88,7 +90,6 @@ public class CrackingController implements Initializable, CrackingView {
     }
 
     private void onClose() {
-        KeeCrack keeCrack = KeeCrack.getInstance();
         keeCrack.abort();
         keeCrack.setCrackingView(null);
     }
