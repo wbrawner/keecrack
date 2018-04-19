@@ -31,11 +31,11 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The main class responsible for handling the brute forcing of the KeePass database. You do not contruct the
- * KeeCrack instance directly, but rather call {@link #getInstance()}. To begin, you should set the form view and
- * cracking view with {@link #setFormView(FormView)} and {@link #setCrackingView(CrackingView)} respectively. These
- * views will be responsible for displaying information like error messages and status updates. The cracking will
- * work without these, though it's highly recommended to set them prior to beginning. The database and wordlist must
- * be set, while the key file is also optional. If either of the required parameters are missing, the
+ * KeeCrack instance directly, but rather call {@link CrackerFactory#getCracker(boolean)}. To begin, you should set the
+ * form view and cracking view with {@link #setFormView(FormView)} and {@link #setCrackingView(CrackingView)}
+ * respectively. These views will be responsible for displaying information like error messages and status updates.
+ * The cracking will work without these, though it's highly recommended to set them prior to beginning. The database
+ * and wordlist must be set, while the key file is also optional. If either of the required parameters are missing, the
  * {@link #attack()} operation will abort, sending either {@link Code#ERROR_INVALID_DATABASE_FILE} or
  * {@link Code#ERROR_INVALID_WORD_LIST}, respectively. The word list can either be a pattern, in which case
  * incremental guessing will take place, or a file, in which case each line of the file will be considered a password
@@ -49,7 +49,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * first parameter will be null.
  */
 public class KeeCrack {
-    private static final AtomicReference<KeeCrack> singleton = new AtomicReference<>(null);
     private final Object keyFileLock = new Object();
     private final AtomicBoolean isCracking = new AtomicBoolean(false);
     /**
@@ -65,27 +64,10 @@ public class KeeCrack {
     private WordList wordList;
     private int guessCount = 0;
 
-    private KeeCrack() {
-    }
-
-    public static KeeCrack getInstance() {
-        if (singleton.get() == null) {
-            singleton.set(new KeeCrack());
-        }
-
-        return singleton.get();
-    }
-
     /**
-     * Call this to reset the state of the KeeCrack instance. Note that you will need to set the views again after
-     * calling this
+     * To get an instance of the class, use the {@link CrackerFactory}
      */
-    public void reset() {
-        setDatabaseFile(null);
-        setKeyFile(null);
-        setWordListFile(null);
-        setCrackingView(null);
-        setFormView(null);
+    KeeCrack() {
     }
 
     public void abort() {

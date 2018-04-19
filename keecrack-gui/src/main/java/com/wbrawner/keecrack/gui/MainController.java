@@ -16,6 +16,7 @@
 package com.wbrawner.keecrack.gui;
 
 import com.wbrawner.keecrack.lib.Code;
+import com.wbrawner.keecrack.lib.CrackerFactory;
 import com.wbrawner.keecrack.lib.KeeCrack;
 import com.wbrawner.keecrack.lib.view.FormView;
 import javafx.fxml.FXML;
@@ -48,7 +49,6 @@ public class MainController implements Initializable, FormView {
     private TextField wordlist;
     @FXML
     private Button crackButton;
-    @FXML
     private ToggleGroup wordlistType;
     @FXML
     private RadioButton wordlistFile;
@@ -57,10 +57,10 @@ public class MainController implements Initializable, FormView {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        keeCrack = KeeCrack.getInstance();
+        keeCrack = new CrackerFactory().getCracker(true);
         keeCrack.setFormView(this);
         database.setOnMouseClicked(event -> {
-            if (KeeCrack.getInstance().isCracking()) {
+            if (keeCrack.isCracking()) {
                 return;
             }
 
@@ -69,7 +69,7 @@ public class MainController implements Initializable, FormView {
         });
 
         key.setOnMouseClicked(event -> {
-            if (KeeCrack.getInstance().isCracking()) {
+            if (keeCrack.isCracking()) {
                 return;
             }
 
@@ -81,7 +81,7 @@ public class MainController implements Initializable, FormView {
 
         crackButton.setOnMouseClicked(event -> {
             try {
-                if (KeeCrack.getInstance().isCracking()) {
+                if (keeCrack.isCracking()) {
                     return;
                 }
                 Stage stage = new Stage();
@@ -107,13 +107,16 @@ public class MainController implements Initializable, FormView {
                 e.printStackTrace();
             }
         });
+        if (wordlistType == null)
+            wordlistType = new ToggleGroup();
+        wordlistFile.setToggleGroup(wordlistType);
+        wordlistPattern.setToggleGroup(wordlistType);
         wordlistType.selectedToggleProperty().addListener((observableValue, oldToggle, newToggle) ->
                 updateWordListHandler());
 
         if (keeCrack.getDatabaseFile() != null)
             onDatabaseFileSet(keeCrack.getDatabaseFile().getName());
         if (keeCrack.getKeyFile() != null)
-            onKeyFileSet(keeCrack.getKeyFile().getName());
         if (keeCrack.getWordListName() != null)
             onWordListSet(keeCrack.getWordListName());
     }
@@ -127,7 +130,7 @@ public class MainController implements Initializable, FormView {
                 new FileChooser.ExtensionFilter(description, extensions)
         );
         Stage stage = new Stage();
-        stage.setOnHidden(e -> KeeCrack.getInstance().setFormView(null));
+        stage.setOnHidden(e -> keeCrack.setFormView(null));
         return fileChooser.showOpenDialog(stage);
     }
 
@@ -137,7 +140,7 @@ public class MainController implements Initializable, FormView {
             wordlist.setEditable(false);
             wordlist.setCursor(Cursor.HAND);
             wordlist.setOnMouseClicked(event -> {
-                if (KeeCrack.getInstance().isCracking()) {
+                if (keeCrack.isCracking()) {
                     return;
                 }
                 File wordlistFile = getFile("Text Files", "txt");

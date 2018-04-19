@@ -21,13 +21,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 
-import static junit.framework.TestCase.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -41,28 +37,12 @@ public class KeeCrackTest {
     public void setUp() {
         mockCrackingView = mock(CrackingView.class);
         mockFormView = mock(FormView.class);
-        keeCrack = KeeCrack.getInstance();
+        keeCrack = new CrackerFactory().getCracker(false);
     }
 
     @After
     public void tearDown() {
-        keeCrack.reset();
         Utils.rmdir(Utils.getTmpDir());
-    }
-
-    @Test
-    public void resetTest() {
-        keeCrack.setDatabaseFile(new File("Database"));
-        keeCrack.setKeyFile(new File("Keyfile"));
-        keeCrack.setWordListPattern("Some pattern");
-        assertNotNull(keeCrack.getDatabaseFile());
-        assertNotNull(keeCrack.getKeyFile());
-        assertNotNull(keeCrack.getWordList());
-        keeCrack.reset();
-        assertNull(keeCrack.getDatabaseFile());
-        assertNull(keeCrack.getKeyFile());
-        assertNull(keeCrack.getWordList());
-        assertFalse(keeCrack.isCracking());
     }
 
     @Test
